@@ -23,7 +23,7 @@ const Footer = () => {
             </p>
             <div className="flex items-center gap-2 text-sm">
               <Award className="h-4 w-4" />
-              <span className="opacity-90">SIH 2025 Innovation</span>
+              <span className="opacity-90">SIH 2024 Innovation</span>
             </div>
           </div>
 
