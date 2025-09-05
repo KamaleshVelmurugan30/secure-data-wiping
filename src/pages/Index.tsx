@@ -4,7 +4,7 @@ import DashboardSection from "@/components/DashboardSection";
 import VerificationSection from "@/components/VerificationSection";
 import ComplianceSection from "@/components/ComplianceSection";
 import Footer from "@/components/Footer";
-
+import { apiFetch } from "@/lib/api"
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
