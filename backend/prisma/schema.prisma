@@ -1,0 +1,235 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  hash      String
+  role      UserRole @default(OPERATOR)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  wipeJobs WipeJob[]
+
+  @@map("users")
+}
+
+model Agent {
+  id         String      @id @default(cuid())
+  name       String
+  os         String
+  version    String
+  enrolledAt DateTime    @default(now())
+  status     AgentStatus @default(ONLINE)
+  publicKey  String?
+  mtlsCert   String?
+  lastSeen   DateTime?
+
+  wipeJobs WipeJob[]
+
+  @@map("agents")
+}
+
+model Asset {
+  id           String    @id @default(cuid())
+  tag          String    @unique
+  manufacturer String
+  model        String
+  serial       String
+  mediaType    MediaType
+  location     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  wipeJobs WipeJob[]
+
+  @@map("assets")
+}
+
+model WipeJob {
+  id                String         @id @default(cuid())
+  assetId          String?
+  scope            WipeScope
+  targetPathOrDrive String
+  nistCategory     NistCategory
+  method           WipeMethod
+  status           JobStatus      @default(QUEUED)
+  requestedBy      String
+  assignedAgentId  String?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  policyJson       Json?
+  runLogSha256     String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  asset             Asset?             @relation(fields: [assetId], references: [id])
+  requestedByUser   User               @relation(fields: [requestedBy], references: [id])
+  assignedAgent     Agent?             @relation(fields: [assignedAgentId], references: [id])
+  wipeResult        WipeResult?
+  certificate       Certificate?
+  blockchainRecord  BlockchainRecord?
+  deliveries        Delivery[]
+
+  @@map("wipe_jobs")
+}
+
+model WipeResult {
+  id             String   @id @default(cuid())
+  jobId          String   @unique
+  deviceInfoJson Json
+  metricsJson    Json     // writeMBps, readMBps, duration
+  proofJson      Json
+  pdfUrl         String?
+  jsonUrl        String?
+  createdAt      DateTime @default(now())
+
+  job WipeJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("wipe_results")
+}
+
+model Certificate {
+  id              String            @id @default(cuid())
+  jobId           String            @unique
+  jsonBlob        Json
+  pkcs7Url        String?
+  hash            String
+  status          CertificateStatus @default(VERIFIED)
+  caDetailsJson   Json?
+  createdAt       DateTime          @default(now())
+
+  job WipeJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("certificates")
+}
+
+model BlockchainRecord {
+  id          String            @id @default(cuid())
+  jobId       String            @unique
+  txHash      String?
+  network     String            @default("ethereum")
+  blockNumber BigInt?
+  certHash    String
+  status      BlockchainStatus  @default(PENDING)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  job WipeJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("blockchain_records")
+}
+
+model Delivery {
+  id          String         @id @default(cuid())
+  jobId       String
+  partnerId   String
+  method      DeliveryMethod
+  status      DeliveryStatus @default(PENDING)
+  attempts    Int            @default(0)
+  lastError   String?
+  payloadUrl  String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  job     WipeJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  partner Partner @relation(fields: [partnerId], references: [id])
+
+  @@map("deliveries")
+}
+
+model Partner {
+  id              String   @id @default(cuid())
+  name            String
+  contactEmail    String
+  webhookUrl      String?
+  apiBase         String?
+  apiKey          String?
+  preferencesJson Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  deliveries Delivery[]
+
+  @@map("partners")
+}
+
+enum UserRole {
+  ADMIN
+  OPERATOR
+  PARTNER
+}
+
+enum AgentStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+}
+
+enum MediaType {
+  HDD
+  SSD
+  NVME
+  FLASH
+  REMOVABLE
+}
+
+enum WipeScope {
+  DRIVE
+  FOLDER
+}
+
+enum NistCategory {
+  CLEAR
+  PURGE
+  DESTROY
+}
+
+enum WipeMethod {
+  OVERWRITE
+  ATA_SECURE_ERASE
+  NVME_SANITIZE
+  CRYPTO_ERASE
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum CertificateStatus {
+  VERIFIED
+  INVALID
+  PENDING
+}
+
+enum BlockchainStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+enum DeliveryMethod {
+  WEBHOOK
+  EMAIL
+  API
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+}
